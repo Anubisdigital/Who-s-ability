@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Secure Opener</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#7dd3fc;
+      --accent-2:#60a5fa;
+      --muted:#94a3b8;
+      --danger:#fb7185;
+      --glass: rgba(255,255,255,0.03);
+    }
+
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+    html,body{height:100%}
+    body{
+      margin:0;
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(800px 400px at 10% 10%, rgba(34,197,94,0.06), transparent 10%),
+        radial-gradient(600px 300px at 90% 90%, rgba(96,165,250,0.04), transparent 10%),
+        var(--bg);
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .card{
+      width: min(540px, 92%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.04);
+      padding:28px;
+      border-radius:14px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      backdrop-filter: blur(6px);
+    }
+
+    h1{
+      margin:0 0 8px 0;
+      font-size:20px;
+      letter-spacing:0.2px;
+      color: #eaf6ff;
+    }
+    p.lead{
+      margin:0 0 18px 0;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .input-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-bottom:12px;
+    }
+
+    input[type="password"]{
+      flex:1;
+      padding:12px 14px;
+      background:var(--glass);
+      border:1px solid rgba(255,255,255,0.03);
+      color: #e6eef8;
+      border-radius:10px;
+      font-size:15px;
+      outline:none;
+      transition: box-shadow .15s ease, transform .08s ease;
+    }
+    input[type="password"]:focus{
+      box-shadow: 0 6px 20px rgba(96,165,250,0.08);
+      transform: translateY(-1px);
+      border-color: rgba(96,165,250,0.25);
+    }
+    button.go{
+      padding:10px 14px;
+      border-radius:10px;
+      border: none;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color:#04263b;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(96,165,250,0.12);
+      transition: transform .08s ease, opacity .12s ease;
+    }
+    button.go:active{ transform: translateY(1px) }
+    button.go[disabled]{ opacity:.5; cursor:not-allowed }
+
+    .msg{
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:8px;
+      padding:10px 12px;
+      border-radius:10px;
+      font-size:14px;
+    }
+
+    .msg.info{ background: rgba(96,165,250,0.06); color:var(--accent-2); border:1px solid rgba(96,165,250,0.06) }
+    .msg.warn{ background: rgba(250,204,21,0.04); color:#facc15; border:1px solid rgba(250,204,21,0.04) }
+    .msg.danger{ background: rgba(244,63,94,0.05); color:var(--danger); border:1px solid rgba(244,63,94,0.05) }
+    .msg.success{ background: rgba(34,197,94,0.04); color:#86efac; border:1px solid rgba(34,197,94,0.04) }
+
+    .small{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:12px;
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+      background: rgba(255,255,255,0.02);
+      border-radius:6px;
+      padding:2px 6px;
+      font-size:12px;
+      color:var(--muted);
+      border:1px solid rgba(255,255,255,0.02);
+    }
+
+    footer{ margin-top:16px; text-align:right; font-size:12px; color:var(--muted) }
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-labelledby="title">
+    <h1 id="title">Enter access code</h1>
+    <p class="lead">Type the access code to open <span class="kbd">hio.html</span>. The code is case-sensitive.</p>
+
+    <div class="input-row" aria-hidden="false">
+      <label for="pin" class="sr-only" style="display:none">Code</label>
+      <input id="pin" type="password" inputmode="text" autocomplete="off" placeholder="Enter code…" aria-describedby="status" />
+      <button id="go" class="go" title="Open file">Open</button>
+    </div>
+
+    <div id="status" class="msg info" role="status" aria-live="polite">
+      <span id="statusText">Awaiting input — enter the code and press Open or Enter.</span>
+    </div>
+
+    <div class="small">Tip: the code you gave is <strong>007766114anubis_holly</strong> (case-sensitive).</div>
+    <footer>Attempts left: <span id="left">5</span></footer>
+  </main>
+
+  <script>
+    (function(){
+      // The exact secret (case sensitive)
+      const SECRET = '007766114anubis_holly';
+      const MAX_ATTEMPTS = 5;
+
+      // Different messages to show on wrong attempts (1..5)
+      const WRONG_MESSAGES = [
+        "That code doesn't look right. Try again.",
+        "Still not correct — double-check spelling and case.",
+        "Incorrect code. Are you sure you typed every character?",
+        "No luck. This attempt has been logged locally.",
+        "Final incorrect attempt — after this access will be blocked."
+      ];
+
+      // Elements
+      const pinInput = document.getElementById('pin');
+      const goBtn = document.getElementById('go');
+      const status = document.getElementById('status');
+      const statusText = document.getElementById('statusText');
+      const leftCounter = document.getElementById('left');
+
+      // State
+      let attempts = 0;
+
+      function setStatus(text, kind='info'){
+        statusText.textContent = text;
+        status.className = 'msg ' + (kind === 'info' ? 'info' : kind === 'warn' ? 'warn' : kind === 'danger' ? 'danger' : 'success');
+      }
+
+      function lockOut(){
+        pinInput.disabled = true;
+        goBtn.disabled = true;
+        leftCounter.textContent = '0';
+        setStatus('Too many failed attempts. Access denied and input locked.', 'danger');
+      }
+
+      function succeed(){
+        setStatus('Code accepted — opening hio.html …', 'success');
+        // Small delay so user sees the success message (50-250ms). We won't wait long.
+        setTimeout(() => {
+          // Open hio.html in the same folder
+          window.location.href = 'hio.html';
+        }, 150);
+      }
+
+      function handleWrong(){
+        attempts++;
+        const left = Math.max(0, MAX_ATTEMPTS - attempts);
+        leftCounter.textContent = left.toString();
+
+        // Pick the message corresponding to this attempt (1-based).
+        const idx = Math.min(WRONG_MESSAGES.length, attempts) - 1;
+        // On attempts less than MAX_ATTEMPTS show warn, on final show danger.
+        const kind = (attempts < MAX_ATTEMPTS) ? 'warn' : 'danger';
+        setStatus(WRONG_MESSAGES[idx] || 'Incorrect code.', kind);
+
+        if(attempts >= MAX_ATTEMPTS){
+          lockOut();
+        } else {
+          // briefly shake the input for feedback
+          pinInput.animate([
+            { transform: 'translateX(0)' },
+            { transform: 'translateX(-6px)' },
+            { transform: 'translateX(6px)' },
+            { transform: 'translateX(-4px)' },
+            { transform: 'translateX(4px)' },
+            { transform: 'translateX(0)' }
+          ], { duration: 350, easing: 'ease-in-out' });
+          pinInput.focus();
+          pinInput.select();
+        }
+      }
+
+      function attemptOpen(){
+        const val = pinInput.value.trim();
+        if(!val){
+          setStatus('Please enter the code first.', 'warn');
+          pinInput.focus();
+          return;
+        }
+
+        // Exact, case-sensitive compare
+        if(val === SECRET){
+          succeed();
+        } else {
+          handleWrong();
+        }
+      }
+
+      // Events
+      goBtn.addEventListener('click', attemptOpen);
+      pinInput.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') attemptOpen();
+      });
+
+      // Accessibility: focus the input on load
+      window.addEventListener('load', () => pinInput.focus());
+    })();
+  </script>
+</body>
+</html>
